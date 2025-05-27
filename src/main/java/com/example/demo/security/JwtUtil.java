@@ -1,46 +1,61 @@
 package com.example.demo.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
 
-import jakarta.annotation.PostConstruct;
-
-
 @Component
 public class JwtUtil {
-    private Key key;
-    private final long jwtTokenExpiration = 1000*60*60*24; // 24Hr
-    private final long refreshTokenExpiration = 1000*60*60*24; // 24hr
 
-    @PostConstruct
-    public void init(){
-        this.key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    @Value("${jwt.signing-key}")
+    private String secretKey;
+
+    @Value("${jwt.expiration}")
+    private long jwtTokenExpiration;
+
+    @Value("${jwt.refresh-expiration}")
+    private long refreshTokenExpiration;
+
+    private Key getSigningKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateToken(String username, String roles, boolean isRefreshToken) {
-        long expiration = isRefreshToken ? refreshTokenExpiration : jwtTokenExpiration;
+    public String generateAccessToken(String username, String roles) {
+        return generateToken(username, roles, jwtTokenExpiration);
+    }
+
+    public String generateRefreshToken(String username, String roles) {
+        return generateToken(username, roles, refreshTokenExpiration);
+    }
+
+    private String generateToken(String username, String roles, long expirationTime) {
         return Jwts.builder()
                 .setSubject(username)
                 .claim("roles", roles)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(key)
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
+
     public Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
+
+    public boolean isTokenExpired(String token) {
+        return extractAllClaims(token).getExpiration().before(new Date());
+    }
+
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
     }
@@ -57,9 +72,7 @@ public class JwtUtil {
             return false;
         }
     }
-
-    private boolean isTokenExpired(String token) {
-        return extractAllClaims(token).getExpiration().before(new Date());
+    public long getRefreshExpiration() {
+        return refreshTokenExpiration;
     }
-
 }

@@ -1,6 +1,8 @@
 package com.example.demo.Controllers;
 
 import com.example.demo.DTOs.AuthRequest;
+import com.example.demo.DTOs.AuthResponse;
+import com.example.demo.DTOs.RefreshTokenRequest;
 import com.example.demo.services.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +26,7 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody Map<String, String> request) {
-        return ResponseEntity.ok(authService.refreshToken(request.get("refreshToken")));
+    public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refreshToken(request.getRefreshToken()));
     }
 }
